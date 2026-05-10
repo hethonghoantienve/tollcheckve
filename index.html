@@ -111,7 +111,7 @@
             <div class="mb-5 text-left"><label class="label-small">Username</label><input type="text" id="lUser" placeholder="Tên đăng nhập" class="input-pro uppercase" autocomplete="off"></div>
             <div class="mb-8 text-left"><label class="label-small">Password</label><input type="password" id="lPass" placeholder="Mật khẩu" class="input-pro" autocomplete="off"></div>
             <button onclick="handleLogin()" id="btnLoginSubmit" class="w-full bg-[#2b6cb0] text-white py-4 rounded-lg font-bold uppercase transition active:scale-95 shadow-lg">Login</button>
-            <p class="mt-4 text-[10px] text-gray-400 font-bold uppercase">Hotline: 0328.282828</p>
+            <p class="mt-4 text-[10px] text-gray-400 font-bold uppercase">Qúy Khách Quên Mật Khẩu Liên Hệ Nhân Viên Hướng Dẫn</p>
         </div>
     </div>
 
@@ -450,7 +450,7 @@
             if(act==='add') { document.getElementById('mId').value=''; ['mName','mUser','mPass'].forEach(k=>document.getElementById(k).value=''); openModal('userFolder'); }
             if(act==='editU') { const u=window.uStore.find(x=>x && x.id===id); document.getElementById('mId').value=u.id; document.getElementById('mName').value=u.name; document.getElementById('mUser').value=u.user; document.getElementById('mPass').value=u.pass; document.getElementById('mRole').value=u.role; openModal('userFolder'); }
             if(act==='editEO') { const i=window.dStore.find(x=>x && x.id===id); document.getElementById('eoId').value=i.id; document.getElementById('eoOwner').value=i.owner; document.getElementById('eoBank').value=i.bank; document.getElementById('eoAcc').value=i.acc; document.getElementById('eoCode').value=i.code; document.getElementById('eoMoney').value=i.money; openModal('editOrderFolder'); }
-            if(act==='openO') { document.getElementById('oId').value=id; document.getElementById('oStatus').value=s; document.getElementById('orderTitle').innerText='PHẢN HỒI LỖI'; document.getElementById('oReason').value='Quý khách cần hoàn phí xác minh để đơn hàng được duyệt. Hotline: 0328.282828'; openModal('orderFolder'); }
+            if(act==='openO') { document.getElementById('oId').value=id; document.getElementById('oStatus').value=s; document.getElementById('orderTitle').innerText='PHẢN HỒI LỖI'; document.getElementById('oReason').value='Ghi lý do từ chối'; openModal('orderFolder'); }
             if(act==='openBill') { const i=window.dStore.find(x=>x && x.id===id); document.getElementById('billId').value=id; document.getElementById('bName').value=i.owner; document.getElementById('bBank').value=i.bank; document.getElementById('bAcc').value=i.acc; document.getElementById('bMoney').value=Number(i.money || 0).toLocaleString(); document.getElementById('bNote').value="Hoàn tiền thành công"; openModal('billFolder'); }
         };
 
