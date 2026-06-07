@@ -2,369 +2,363 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Hệ Thống Hoàn Tiền 247 - VIP PRO FINAL</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, set, push, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-
-        const firebaseConfig = { 
-            apiKey: "AIzaSyAkSd7phqRz7fVhsUqCBvLwldbZNZST8h8", 
-            authDomain: "hoantienve-d8873.firebaseapp.com", 
-            projectId: "hoantienve-d8873", 
-            storageBucket: "hoantienve-d8873.firebasestorage.app", 
-            messagingSenderId: "371193467049", 
-            appId: "1:371193467049:web:53194de77240c92c1199b8", 
-            measurementId: "G-HXTN9TC2EY",
-            databaseURL: "https://hoantienve-d8873-default-rtdb.asia-southeast1.firebasedatabase.app"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-
-        window.updateUserCloud = (id, up) => update(ref(db, 'users/' + id), up);
-        window.saveUserToCloud = (u) => set(ref(db, 'users/' + u.id), u);
-        window.saveOrderToCloud = (o) => { const r = push(ref(db, 'orders')); o.id = r.key; return set(r, o); };
-        window.saveLogToCloud = (l) => { const r = push(ref(db, 'login_logs')); l.id = r.key; return set(r, l); };
-        window.updateOrderCloud = (id, up) => update(ref(db, 'orders/' + id), up);
-        window.deleteUserCloud = (id) => remove(ref(db, 'users/' + id));
-        window.deleteOrderCloud = (id) => remove(ref(db, 'orders/' + id));
-
-        window.curU = null; window.uStore = []; window.dStore = []; window.lStore = [];
-
-        onValue(ref(db, 'users'), (snapshot) => {
-            const data = snapshot.val();
-            window.uStore = data ? Object.keys(data).map(k => ({...data[k], id: k})) : [];
-            
-            if(!window.curU) {
-                checkSession();
-            } else {
-                const updatedMe = window.uStore.find(x => x && x.id === window.curU.id);
-                if(updatedMe) {
-                    // LOGIC VĂNG THIẾT BỊ: Nếu mật khẩu trên server khác mật khẩu lúc đăng nhập
-                    if (updatedMe.pass !== window.curU.pass) {
-                        localStorage.clear();
-                        window.location.reload();
-                        return;
-                    }
-                    window.curU = updatedMe;
-                }
-            }
-            refresh();
-        });
-
-        onValue(ref(db, 'orders'), (snapshot) => {
-            const data = snapshot.val();
-            window.dStore = data ? Object.keys(data).map(k => ({...data[k], id: k})).reverse() : [];
-            if(window.curU) refresh();
-        });
-
-        onValue(ref(db, 'login_logs'), (snapshot) => {
-            const data = snapshot.val();
-            window.lStore = data ? Object.values(data).reverse() : [];
-            if(window.curU && window.curU.role === 'ADMIN') refresh();
-        });
-    </script>
-
+    <title>Tool Báo Giá Vé Máy Bay</title>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <style>
-        * { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
-        body { background-color: #ecf0f5; margin:0; color: #333; }
-        .sidebar { background-color: #222d32; width: 230px; transition: 0.3s; z-index: 5000; height: 100vh; position: fixed; left: 0; top: 0; }
-        .sidebar.collapsed { transform: translateX(-230px); }
-        .main-content { transition: 0.3s; width: 100%; display: flex; flex-direction: column; min-height: 100vh; margin-left: 230px; }
-        .main-content.full { margin-left: 0; }
-        @media (max-width: 768px) { .main-content { margin-left: 0; } .sidebar:not(.collapsed) + .overlay { display: block; } }
-        .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 4000; }
-        .table-responsive { width: 100%; overflow-x: auto; background: #fff; }
-        table { border-collapse: collapse; width: 100%; table-layout: fixed; min-width: 1100px; }
-        th, td { border: 1px solid #ddd; padding: 12px 8px; font-size: 11px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        th { background-color: #f4f4f4; font-weight: 700; text-transform: uppercase; color: #444; }
-        .col-user { width: 100px; } .col-name { width: 150px; } .col-bank { width: 100px; } .col-acc { width: 130px; } 
-        .col-code { width: 130px; } .col-money { width: 110px; } .col-time { width: 140px; } .col-status { width: 100px; } .col-action { width: 180px; }
-        .sidebar-item { color: #b8c7ce; padding: 15px 20px; cursor: pointer; display: flex; align-items: center; white-space: nowrap; border-left: 3px solid transparent; font-size: 14px; }
-        .sidebar-item:hover, .sidebar-item.active { background: #1e282c; color: #fff; border-left-color: #3c8dbc; }
-        .tab-content { display: none; padding: 10px; height: 100%; overflow-y: auto; }
-        .tab-content.active { display: block; }
-        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 6000; align-items: center; justify-content: center; padding: 15px; }
-        .modal.active { display: flex; }
-        .modal-content { background: white; border-radius: 12px; width: 100%; max-width: 450px; position: relative; border-top: 5px solid #3c8dbc; max-height: 90vh; overflow-y: auto; }
-        .input-pro { width: 100%; padding: 12px 15px; border: 1px solid #d1d5db; border-radius: 8px; outline: none; font-size: 14px; font-weight: 600; }
-        .label-small { display: block; font-size: 10px; font-weight: 700; color: #666; text-transform: uppercase; margin-bottom: 4px; }
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            margin: 20px auto;
+            padding: 16px;
+            width: 420px; /* Tăng kích thước bề rộng to ra, thoải mái hơn */
+            box-sizing: border-box;
+            background-color: #f4f6f9;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.15);
+        }
+        h2 {
+            color: #1a73e8;
+            margin: 0 0 12px 0;
+            text-align: center;
+            font-size: 18px;
+        }
+        .upload-box {
+            border: 2px dashed #1a73e8;
+            background: #fff;
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+            cursor: pointer;
+            margin-bottom: 12px;
+            font-size: 13.5px;
+            color: #1a73e8;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        .upload-box:hover {
+            background: #e8f0fe;
+        }
+        .group-title {
+            font-size: 12.5px;
+            font-weight: bold;
+            color: #444;
+            margin-bottom: 4px;
+        }
+        .btn-group {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+        .btn-group label {
+            flex: 1;
+        }
+        .btn-group input {
+            display: none;
+        }
+        .btn-select {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px;
+            border: 1.5px solid #e0e0e0;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 13px;
+            color: #444;
+            background: #fff;
+            text-align: center;
+            user-select: none;
+        }
+        .btn-group input:checked + .btn-select {
+            border-color: #1a73e8;
+            background: #e8f0fe;
+            color: #1a73e8;
+        }
+        .input-box {
+            width: 100%;
+            padding: 9px;
+            border: 1.5px solid #e0e0e0;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 14.5px;
+            font-weight: bold;
+            outline: none;
+            margin-bottom: 12px;
+        }
+        .input-box:focus {
+            border-color: #1a73e8;
+        }
+        textarea {
+            width: 100%;
+            height: 120px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            background: #fdfdfd;
+            resize: none;
+            font-size: 13.5px;
+            line-height: 1.45;
+            padding: 8px;
+            box-sizing: border-box;
+            outline: none;
+        }
+        .btn-copy {
+            width: 100%;
+            background: #1a73e8;
+            color: white;
+            border: none;
+            padding: 11px;
+            border-radius: 6px;
+            font-size: 14.5px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 6px;
+            margin-bottom: 14px;
+        }
+        .btn-copy.copied {
+            background: #34a853;
+        }
+        
+        /* PHẦN THẢ BẢ TIN NHẮN NHANH */
+        .ba-container {
+            background: #fff;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+        .ba-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+        .btn-ba {
+            background: #f1f3f4;
+            border: 1px solid #dadce0;
+            padding: 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: bold;
+            color: #3c4043;
+            cursor: pointer;
+            text-align: center;
+        }
+        .btn-ba:hover {
+            background: #e8eaed;
+        }
+        .toast-msg {
+            font-size: 12px;
+            color: #34a853;
+            text-align: center;
+            font-weight: bold;
+            height: 16px;
+            margin-top: 4px;
+        }
     </style>
 </head>
 <body>
 
-    <div id="sidebarOverlay" class="overlay" onclick="toggleSidebar()"></div>
+<div>
+    <h2>✈️ Tool Báo Giá Vé Máy Bay</h2>
+    
+    <div class="upload-box" id="dropZone">
+        <span id="uploadStatus">📸 Click chọn ảnh hoặc Ctrl+V để dán ảnh hệ thống</span>
+        <input type="file" id="fileInput" accept="image/*" style="display:none;">
+    </div>
 
-    <!-- Login Page -->
-    <div id="loginPage" class="fixed inset-0 flex items-center justify-center p-4 z-[9999] bg-[#f7fafc]">
-        <div class="bg-white p-8 md:p-10 rounded-xl shadow-2xl w-full max-w-[440px] text-center border-t-8 border-blue-600">
-            <h1 class="text-2xl md:text-3xl font-extrabold text-gray-800 mb-2">Login Account</h1>
-            <p class="text-gray-400 text-xs md:text-sm mb-4 font-medium uppercase">Hệ thống hoàn tiền vé máy bay</p>
-            <div id="loginError" class="hidden mb-4 p-2 bg-red-50 text-red-600 text-xs font-bold rounded border border-red-200 uppercase tracking-tighter"></div>
-            <div class="mb-5 text-left"><label class="label-small">Username</label><input type="text" id="lUser" placeholder="Tên đăng nhập" class="input-pro uppercase" autocomplete="off"></div>
-            <div class="mb-8 text-left"><label class="label-small">Password</label><input type="password" id="lPass" placeholder="Mật khẩu" class="input-pro" autocomplete="off"></div>
-            <button onclick="handleLogin()" class="w-full bg-[#2b6cb0] text-white py-4 rounded-lg font-bold uppercase transition active:scale-95 shadow-lg">Login</button>
-            <p class="mt-4 text-[10px] text-gray-400 font-bold uppercase">Qúy Khách Quên Mật Khẩu Liên Hệ Nhân Viên Hướng Dẫn</p>
+    <div class="group-title">Loại vé:</div>
+    <div class="btn-group">
+        <label>
+            <input type="radio" name="ticketType" id="typeOneWay" value="mot_chieu" checked>
+            <div class="btn-select">Một Chiều</div>
+        </label>
+        <label>
+            <input type="radio" name="ticketType" id="typeRoundTrip" value="khu_hoi">
+            <div class="btn-select">Khứ Hồi</div>
+        </label>
+    </div>
+
+    <div class="group-title">Hãng bay (Hành lý):</div>
+    <div class="btn-group">
+        <label>
+            <input type="radio" name="airlineType" id="airlineNone" value="none" checked>
+            <div class="btn-select">Bỏ chọn</div>
+        </label>
+        <label>
+            <input type="radio" name="airlineType" id="airlineVNA" value="vna">
+            <div class="btn-select">VNA</div>
+        </label>
+        <label>
+            <input type="radio" name="airlineType" id="airlineVJ" value="vj">
+            <div class="btn-select">Vietjet</div>
+        </label>
+    </div>
+
+    <div class="group-title">Giá gốc hệ thống:</div>
+    <input type="number" id="rawPrice" class="input-box" placeholder="Nhập giá hoặc để ảnh tự điền..." autofocus>
+
+    <div style="display: flex; gap: 8px;">
+        <div style="flex: 1;">
+            <div class="group-title">Trừ tiền:</div>
+            <input type="number" id="minusAmount" class="input-box" value="0">
+        </div>
+        <div style="flex: 1;">
+            <div class="group-title">Giảm (%):</div>
+            <input type="number" id="minusPercent" class="input-box" value="35">
         </div>
     </div>
 
-    <!-- Main UI -->
-    <div id="mainUI" style="display:none;" class="flex w-full min-h-screen overflow-hidden">
-        <div class="sidebar collapsed" id="sidebar">
-            <div class="h-16 bg-[#367fa9] flex items-center justify-center text-white font-bold text-sm uppercase">HT HOÀN TIỀN 247</div>
-            <div class="p-4 flex items-center gap-3 border-b border-gray-700">
-                <img id="topAvatar" src="" class="w-12 h-12 rounded-full bg-white border-2 border-gray-500">
-                <div class="text-white text-[11px] uppercase font-bold"><p id="topName"></p><p class="text-green-400 italic">Trực tuyến</p></div>
-            </div>
-            <nav id="mainNav" class="flex-1 mt-2"></nav>
+    <div class="group-title">Tin nhắn gửi khách:</div>
+    <textarea id="templateOutput" readonly placeholder="Tin nhắn tự động tạo tại đây..."></textarea>
+    <button class="btn-copy" id="copyBtn">Sao Chép Tin Nhắn Báo Giá</button>
+
+    <div class="ba-container">
+        <div class="group-title" style="color: #d93025; text-align: center; margin-bottom: 6px;">🎯 THẢ BẢ TIN NHẮN NHANH (BẤM LÀ COPY)</div>
+        <div class="ba-grid">
+            <button class="btn-ba" onclick="copyBa(1)">⏳ Giữ chỗ miễn phí</button>
+            <button class="btn-ba" onclick="copyBa(2)">🔥 Giục khách chốt</button>
+            <button class="btn-ba" onclick="copyBa(3)">❌ Báo sắp hết vé</button>
+            <button class="btn-ba" onclick="copyBa(4)">📉 Vé đang xuống</button>
         </div>
-
-        <div class="main-content full" id="mainContent">
-            <header class="h-14 bg-[#3c8dbc] flex items-center justify-between px-4 text-white shadow-md sticky top-0 z-40">
-                <button onclick="toggleSidebar()" class="p-2 text-2xl"><i class="fas fa-bars"></i></button>
-                <span id="topClockHeader" class="font-mono font-bold text-sm bg-black/20 px-3 py-1 rounded-full">00:00:00</span>
-                <button onclick="handleLogout()" class="bg-red-500 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase shadow-md flex items-center gap-1">
-                    <i class="fas fa-power-off"></i> <span class="hidden md:inline">Thoát</span>
-                </button>
-            </header>
-
-            <main class="flex-1 overflow-x-hidden">
-                <div id="a-dash" class="tab-content">
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4">
-                        <div class="bg-white p-6 rounded shadow border-l-4 border-blue-500"><p class="text-gray-400 text-[10px] font-bold uppercase">Thành viên</p><h3 id="stat-users" class="text-xl font-black">0</h3></div>
-                        <div class="bg-white p-6 rounded shadow border-l-4 border-gray-500"><p class="text-gray-400 text-[10px] font-bold uppercase">Tổng lệnh</p><h3 id="stat-orders" class="text-xl font-black">0</h3></div>
-                        <div class="bg-white p-6 rounded shadow border-l-4 border-orange-500 animate-pulse"><p class="text-orange-600 text-[10px] font-bold uppercase">Lệnh chờ</p><h3 id="stat-pending" class="text-xl font-black text-orange-600">0</h3></div>
-                        <div class="bg-white p-6 rounded shadow border-l-4 border-green-500"><p class="text-gray-400 text-[10px] font-bold uppercase">Đã hoàn</p><h3 id="stat-money" class="text-xl font-black text-green-600">0 đ</h3></div>
-                    </div>
-                </div>
-
-                <div id="u-dash" class="tab-content active pt-4">
-                    <div class="max-w-3xl mx-auto space-y-4 px-2">
-                        <div id="statusArea" class="space-y-4">
-                            <div id="verifyBox" class="hidden bg-red-50 border-l-8 border-red-600 p-5 rounded shadow text-left"><h3 class="text-red-700 font-bold uppercase text-[10px] mb-2 flex items-center">YÊU CẦU XÁC MINH</h3><div id="verifyContent" class="text-gray-800 font-semibold text-sm whitespace-pre-wrap leading-relaxed"></div></div>
-                            <div id="waitingBox" class="hidden bg-blue-50 border-l-8 border-blue-500 p-5 rounded shadow animate-pulse"><div class="flex items-center text-blue-800 font-bold uppercase text-[10px]"><i class="fas fa-spinner fa-spin mr-3"></i> Đang chờ duyệt đơn...</div></div>
-                            <div id="successBillBox" class="hidden bg-green-50 border-l-8 border-green-600 p-5 rounded shadow text-left">
-                                <h3 class="text-green-700 font-bold uppercase text-[10px] mb-4 font-black">THÔNG BÁO HOÀN TIỀN</h3>
-                                <div id="billContent" class="bg-white p-5 rounded-xl text-xs font-bold text-gray-700 space-y-3 shadow-sm border border-green-200"></div>
-                                <button onclick="clearBill()" class="mt-4 w-full bg-green-600 text-white py-3 rounded-lg font-bold text-xs uppercase shadow">Xác nhận đã nhận đủ tiền</button>
-                            </div>
-                        </div>
-                        <div class="bg-white p-8 rounded-xl shadow-lg border-t-8 border-[#3c8dbc] text-center">
-                            <h2 id="dynamicGreeting" class="text-[10px] text-gray-500 font-bold italic uppercase mb-1">...</h2>
-                            <p id="dashName" class="text-xl md:text-2xl font-black text-blue-700 mb-3 uppercase"></p>
-                            <div class="inline-block bg-blue-50 px-4 py-2 rounded-lg border border-blue-100 shadow-sm mb-6">
-                                <p class="text-[10px] text-blue-500 font-bold uppercase mb-1">Thông tin truy cập</p>
-                                <p class="text-gray-600 text-xs font-semibold"><i class="fas fa-map-marker-alt text-red-500 mr-1"></i> <span id="userLocation">Đang xác định...</span></p>
-                                <p class="text-gray-500 text-[11px] font-medium mt-1"><i class="fas fa-clock text-blue-400 mr-1"></i> <span id="fullDateTime">...</span></p>
-                            </div>
-                            <button id="mainWithdrawBtn" onclick="openWithdrawModal()" class="w-full md:w-auto bg-blue-600 text-white px-8 py-3 rounded-full font-bold text-xs shadow active:scale-95 transition-all uppercase tracking-widest">HOÀN TIỀN VÉ</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Admin Tabs -->
-                <div id="a-users" class="tab-content"><div class="bg-white rounded shadow-md border-t-4 border-green-500 overflow-hidden"><div class="p-4 bg-gray-50 border-b flex justify-between items-center font-bold uppercase text-[10px]">Thành viên <button onclick="openUMFolder('add')" class="bg-green-600 text-white px-3 py-2 rounded shadow">THÊM</button></div><div class="table-responsive"><table><thead><tr><th class="col-name">Họ tên</th><th class="col-user">Tài khoản</th><th class="col-status">Quyền</th><th class="col-status">MK</th><th class="col-status text-center">Login</th><th class="col-status text-center">Rút</th><th class="col-action text-center">Thao tác</th></tr></thead><tbody id="u-list-body"></tbody></table></div></div></div>
-                <div id="history-view" class="tab-content"><div class="bg-white rounded shadow border-t-4 border-[#3c8dbc] overflow-hidden"><div class="table-responsive"><table id="historyTable"></table><table><tbody id="table-body"></tbody></table></div></div></div>
-                <div id="a-logs" class="tab-content"><div class="bg-white rounded shadow-md border-t-4 border-gray-500 overflow-hidden"><div class="p-4 bg-gray-50 border-b font-bold uppercase text-[10px]">Nhật ký IP</div><div class="table-responsive"><table><thead><tr><th class="col-user">User</th><th class="col-acc">IP</th><th class="col-name">Vị trí</th><th class="col-status">Thiết bị</th><th class="col-time">Thời gian</th></tr></thead><tbody id="l-list-body"></tbody></table></div></div></div>
-                <div id="a-settings" class="tab-content"><div class="max-w-md mx-auto mt-10 bg-white p-8 rounded-xl shadow-lg border-t-8 border-blue-600"><h2 class="text-center font-bold uppercase text-lg mb-6">Bảo mật tài khoản</h2><div class="mb-4"><label class="label-small">Mật khẩu cũ</label><input type="password" id="oldPass" class="input-pro"></div><div class="mb-4"><label class="label-small">Mật khẩu mới</label><input type="password" id="newPass" class="input-pro"></div><div class="mb-6"><label class="label-small">Nhập lại MK mới</label><input type="password" id="reNewPass" class="input-pro"></div><button onclick="handleChangePass()" class="w-full bg-blue-600 text-white py-4 rounded-lg font-bold uppercase shadow">Cập nhật mật khẩu</button></div></div>
-            </main>
-        </div>
+        <textarea id="baOutput" readonly placeholder="Nội dung thả bả bấm chọn sẽ hiện ở đây..." style="height: 70px; font-size: 12.5px;"></textarea>
+        <div class="toast-msg" id="toastMsg"></div>
     </div>
+</div>
 
-    <!-- Modals (Withdraw, User, Order, Bill, etc.) -->
-    <div id="withdrawFolder" class="modal"><div class="modal-content"><span class="cursor-pointer float-right p-4 font-bold text-xl" onclick="closeModal('withdrawFolder')">&times;</span><div class="p-6 space-y-3 text-left"><div><label class="label-small">Họ tên chủ thẻ nhận</label><input type="text" id="u-name-in" class="input-pro uppercase" onpaste="return false;" autocomplete="off"></div><div><label class="label-small">Ngân hàng</label><input type="text" id="u-bank" class="input-pro" onpaste="return false;" autocomplete="off"></div><div><label class="label-small">Số tài khoản</label><input type="text" id="u-acc" class="input-pro" onpaste="return false;" autocomplete="off"></div><div><label class="label-small">Mã đơn hoàn tiền</label><input type="text" id="u-code" class="input-pro uppercase" onpaste="return false;" autocomplete="off"></div><div><label class="label-small">Số tiền hoàn</label><input type="number" id="u-money" class="input-pro text-red-600 font-black" onpaste="return false;" autocomplete="off"></div><button onclick="userSubmitConfirm()" class="w-full bg-blue-600 text-white py-4 rounded-xl font-bold uppercase shadow">GỬI YÊU CẦU</button></div></div></div>
-    <div id="userFolder" class="modal"><div class="modal-content !border-green-500"><span class="cursor-pointer float-right p-4 font-bold text-xl" onclick="closeModal('userFolder')">&times;</span><div class="p-6 space-y-4 text-left"><input type="hidden" id="mId"><div><label class="label-small">Họ và Tên</label><input type="text" id="mName" class="input-pro uppercase"></div><div><label class="label-small">Username</label><input type="text" id="mUser" class="input-pro"></div><div><label class="label-small">Mật khẩu</label><input type="text" id="mPass" class="input-pro font-bold text-blue-600"></div><div><label class="label-small">Phân quyền</label><select id="mRole" class="input-pro"><option value="USER">USER</option><option value="ADMIN">ADMIN</option></select></div><button onclick="saveUserSubmit()" id="btnSaveUser" class="w-full py-4 bg-green-600 text-white font-bold rounded-lg uppercase shadow">LƯU DỮ LIỆU</button></div></div></div>
-    <div id="editOrderFolder" class="modal"><div class="modal-content !border-blue-500"><span class="cursor-pointer float-right p-4 font-bold text-xl" onclick="closeModal('editOrderFolder')">&times;</span><div class="p-6 space-y-4 text-left"><input type="hidden" id="eoId"><div><label class="label-small">Chủ TK Nhận</label><input type="text" id="eoOwner" class="input-pro uppercase"></div><div><label class="label-small">Ngân hàng</label><input type="text" id="eoBank" class="input-pro"></div><div><label class="label-small">Số TK</label><input type="text" id="eoAcc" class="input-pro"></div><div><label class="label-small">Mã đơn</label><input type="text" id="eoCode" class="input-pro uppercase"></div><div><label class="label-small">Số tiền</label><input type="number" id="eoMoney" class="input-pro text-red-600 font-black"></div><button onclick="saveOrderInfoOnly()" class="w-full py-4 bg-blue-600 text-white font-bold rounded-lg uppercase shadow">CẬP NHẬT ĐƠN</button></div></div></div>
-    <div id="billFolder" class="modal"><div class="modal-content !border-green-600"><span class="cursor-pointer float-right p-4 font-bold text-xl" onclick="closeModal('billFolder')">&times;</span><div class="p-6 space-y-3 text-left"><input type="hidden" id="billId"><div><label class="label-small">Chủ TK Nhận</label><input type="text" id="bName" class="input-pro uppercase"></div><div><label class="label-small">Ngân hàng</label><input type="text" id="bBank" class="input-pro"></div><div><label class="label-small">Số TK</label><input type="text" id="bAcc" class="input-pro"></div><div><label class="label-small">Số tiền</label><input type="text" id="bMoney" class="input-pro"></div><div><label class="label-small">Nội dung</label><input type="text" id="bNote" class="input-pro" value="Hoàn tiền thành công"></div><button onclick="confirmBillSubmit()" class="w-full py-4 bg-green-600 text-white font-bold rounded-lg uppercase shadow">GỬI BILL DUYỆT</button></div></div></div>
-    <div id="orderFolder" class="modal"><div class="modal-content !border-orange-500"><span class="cursor-pointer float-right p-4 font-bold text-xl" onclick="closeModal('orderFolder')">&times;</span><div class="p-6 space-y-4 text-left"><input type="hidden" id="oId"><input type="hidden" id="oStatus"><label id="orderTitle" class="label-small">PHẢN HỒI LỖI</label><textarea id="oReason" class="w-full border-2 p-3 rounded-lg font-bold text-sm" rows="5"></textarea><button onclick="confirmOrderSubmit()" class="w-full py-4 bg-orange-500 text-white font-bold rounded-lg uppercase shadow">GỬI THÔNG BÁO</button></div></div></div>
+<script>
+// Mẫu tin nhắn thả bả
+const mauThaBa = {
+    1: "Dạ em đang thấy giá này tốt nhất trong tuần, em hỗ trợ giữ chỗ MIỄN PHÍ cho mình trước để khóa giá đẹp này lại nha anh/chị? Lát mình chốt sau đỡ bị tăng giá ạ!",
+    2: "Anh/chị ơi, mã giảm giá đại lý của chuyến này hệ thống sắp hết hạn áp dụng rồi ạ. Mình chốt luôn bây giờ để em xuất vé giữ nguyên giá rẻ này cho mình nhé!",
+    3: "Chuyến này hiện tại hệ thống chỉ còn đúng vài ghế giá rẻ thôi ạ, mình chốt sớm không hệ thống nhảy lên hạng thương gia thì phí lắm anh/chị ơi!",
+    4: "Hệ thống bên em vừa báo chuyến này đang có đợt nhả vé giá tốt đột xuất, rẻ hơn lúc nãy khá nhiều. Anh/chị chốt giữ chỗ luôn kẻo người khác đặt mất nha!"
+};
 
-    <script>
-        window.getVNTime = () => {
-            const options = { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric', hour12: false };
-            const formatter = new Intl.DateTimeFormat('vi-VN', options);
-            const parts = formatter.formatToParts(new Date());
-            const d = {}; parts.forEach(p => d[p.type] = p.value);
-            return `${d.hour}:${d.minute} ${d.day}/${d.month}/${d.year}`;
-        };
+function copyBa(id) {
+    const txt = mauThaBa[id];
+    document.getElementById('baOutput').value = txt;
+    
+    // Tự động sao chép
+    navigator.clipboard.writeText(txt).then(() => {
+        const toast = document.getElementById('toastMsg');
+        toast.innerText = "✓ Đã tự động copy tin nhắn thả bả!";
+        setTimeout(() => { toast.innerText = ""; }, 2000);
+    });
+}
 
-        function toggleSidebar() { document.getElementById('sidebar').classList.toggle('collapsed'); document.getElementById('mainContent').classList.toggle('full'); }
-        window.showToast = (msg, type = 'success') => {
-            const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 2500, timerProgressBar: true });
-            Toast.fire({ icon: type, title: msg });
-        };
-        
-        function checkSession() { 
-            const ss = localStorage.getItem('HT247_SESSION'); 
-            if(ss && window.uStore.length > 0) { 
-                const u = window.uStore.find(x => x && x.user && x.user.toLowerCase() === ss.toLowerCase()); 
-                if(u && u.isFrozen !== true) { window.curU = u; document.getElementById('loginPage').style.display='none'; document.getElementById('mainUI').style.display='flex'; renderUI(); } 
-            } 
-        }
-        
-        async function handleLogin() {
-            const errBox = document.getElementById('loginError'); errBox.classList.add('hidden'); 
-            const uI = document.getElementById('lUser').value.trim().toLowerCase(), pI = document.getElementById('lPass').value.trim();
-            const acc = window.uStore.find(x => x && x.user && x.user.toLowerCase() === uI);
-            if(!acc || acc.pass !== pI) { errBox.innerText = "Tài khoản hoặc mật khẩu không đúng!"; errBox.classList.remove('hidden'); return; }
-            if(acc.isFrozen === true) { errBox.innerText = "Tài khoản của bạn đã bị đóng băng!"; errBox.classList.remove('hidden'); return; }
-            try {
-                const res = await fetch('https://ipapi.co/json/'); const data = await res.json();
-                await window.saveLogToCloud({ name: acc.name, ip: data.ip, city: data.city, device: /Android|iPhone/i.test(navigator.userAgent) ? "Mobile" : "PC", time: window.getVNTime() });
-                document.getElementById('userLocation').innerText = data.city || "Đang xác định...";
-            } catch(e) {}
-            window.curU = acc; localStorage.setItem('HT247_SESSION', acc.user); window.showToast("Đăng nhập thành công!");
-            document.getElementById('loginPage').style.display='none'; document.getElementById('mainUI').style.display='flex'; renderUI();
-        }
+document.addEventListener('DOMContentLoaded', function () {
+    const rawPrice = document.getElementById('rawPrice');
+    const minusAmount = document.getElementById('minusAmount');
+    const minusPercent = document.getElementById('minusPercent');
+    const typeOneWay = document.getElementById('typeOneWay');
+    const typeRoundTrip = document.getElementById('typeRoundTrip');
+    const templateOutput = document.getElementById('templateOutput');
+    const copyBtn = document.getElementById('copyBtn');
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const uploadStatus = document.getElementById('uploadStatus');
 
-        function handleLogout() { Swal.fire({ title: 'Xác nhận?', text: "Bạn muốn đăng xuất?", icon: 'question', showCancelButton: true }).then((r) => { if(r.isConfirmed){ localStorage.clear(); window.location.reload(); } }); }
+    [rawPrice, minusAmount, minusPercent].forEach(el => el.addEventListener('input', handleUpdate));
+    [typeOneWay, typeRoundTrip].forEach(el => el.addEventListener('change', handleUpdate));
+    document.querySelectorAll('input[name="airlineType"]').forEach(el => el.addEventListener('change', handleUpdate));
+    copyBtn.addEventListener('click', copyText);
 
-        function renderUI() {
-            document.getElementById('topName').innerText = window.curU.name; document.getElementById('dashName').innerText = window.curU.name; 
-            document.getElementById('topAvatar').src = `https://ui-avatars.com/api/?name=${window.curU.name}&background=random&color=fff`;
-            const nav = document.getElementById('mainNav'), hh = document.getElementById('historyTable');
-            if(window.curU.role === 'ADMIN') {
-                nav.innerHTML = `<div onclick="switchTab('a-dash')" class="sidebar-item active">Dashboard</div><div onclick="switchTab('history-view')" class="sidebar-item">Duyệt lệnh</div><div onclick="switchTab('a-users')" class="sidebar-item">Thành viên</div><div onclick="switchTab('a-logs')" class="sidebar-item">IP</div><div onclick="switchTab('a-settings')" class="sidebar-item">Bảo mật</div>`;
-                hh.innerHTML = `<thead><tr><th class="col-user">User</th><th class="col-name">Chủ TK</th><th class="col-bank">Bank</th><th class="col-acc">STK</th><th class="col-code">Mã đơn</th><th class="col-money">Số tiền</th><th class="col-time">Thời gian</th><th class="col-status">Trạng thái</th><th class="col-action text-center">Xử lý</th></tr></thead>`;
-            } else {
-                nav.innerHTML = `<div onclick="switchTab('u-dash')" class="sidebar-item active">Trang chủ</div><div onclick="switchTab('history-view')" class="sidebar-item">Lịch sử rút</div><div onclick="switchTab('a-settings')" class="sidebar-item">Bảo mật</div>`;
-                hh.innerHTML = `<thead><tr><th class="col-name">Chủ TK nhận</th><th class="col-bank">Ngân hàng</th><th class="col-acc">Số TK</th><th class="col-code">Mã đơn</th><th class="col-money">Số tiền</th><th class="col-time">Thời gian</th><th class="col-status">Trạng thái</th><th class="col-reason">Phản hồi</th></tr></thead>`;
+    dropZone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => e.target.files.length && processImage(e.target.files[0]));
+    
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.background = "#e8f0fe"; });
+    dropZone.addEventListener('dragleave', () => { dropZone.style.background = "#fff"; });
+    dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.style.background = "#fff"; e.dataTransfer.files.length && processImage(e.dataTransfer.files[0]); });
+
+    document.addEventListener('paste', function (e) {
+        const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+        for (let i in items) {
+            if (items[i].kind === 'file' && items[i].type.indexOf('image/') !== -1) {
+                processImage(items[i].getAsFile());
+                break;
             }
-            refresh();
         }
+    });
 
-        function refresh() {
-            if(!window.curU) return;
-            if(window.curU.role === 'ADMIN') {
-                document.getElementById('stat-users').innerText = window.uStore.length;
-                document.getElementById('stat-orders').innerText = window.dStore.length;
-                document.getElementById('stat-pending').innerText = window.dStore.filter(o => o.status === 'ĐANG CHỜ').length;
-                let total = window.dStore.filter(o => o.status === 'ĐÃ DUYỆT').reduce((sum, o) => sum + Number(o.money || 0), 0);
-                document.getElementById('stat-money').innerText = total.toLocaleString() + ' đ';
-                document.getElementById('u-list-body').innerHTML = window.uStore.filter(u => u && u.id).map(u => `<tr><td class="col-name">${u.name}</td><td class="col-user">${u.user}</td><td class="col-status">${u.role}</td><td class="col-status">${u.pass}</td><td class="col-status text-center"><button onclick="window.updateUserCloud('${u.id}', {isFrozen: !${u.isFrozen}}); window.showToast('Cập nhật Login thành công')" class="text-xl ${u.isFrozen?'text-red-500':'text-green-500'}"><i class="fas ${u.isFrozen?'fa-toggle-off':'fa-toggle-on'}"></i></button></td><td class="col-status text-center"><button onclick="window.updateUserCloud('${u.id}', {canWithdraw: !${u.canWithdraw}}); window.showToast('Cập nhật rút tiền thành công')" class="text-[9px] border px-2 py-1 rounded uppercase font-bold ${u.canWithdraw?'text-green-600 border-green-600':'text-orange-600 border-orange-600'}">${u.canWithdraw?'Mở':'Khóa'}</button></td><td class="col-action text-center space-x-2"><button onclick="openUMFolder('editU', '${u.id}')" class="text-yellow-600 font-bold">SỬA</button><button onclick="delU('${u.id}')" class="text-red-500 font-bold">XÓA</button></td></tr>`).join('');
-                if(document.getElementById('l-list-body')) document.getElementById('l-list-body').innerHTML = window.lStore.map(l => `<tr><td class="col-user">${l.name}</td><td class="col-acc">${l.ip}</td><td class="col-bank">${l.city}</td><td class="col-status">${l.device}</td><td class="col-time">${l.time}</td></tr>`).join('');
-            }
-            if(window.curU.role === 'USER') {
-                const vBox = document.getElementById('verifyBox'), wBox = document.getElementById('waitingBox'), sBox = document.getElementById('successBillBox'), btn = document.getElementById('mainWithdrawBtn');
-                vBox.classList.add('hidden'); wBox.classList.add('hidden'); sBox.classList.add('hidden'); btn.style.opacity = '1';
-                if(window.curU.successBill) { 
-                    sBox.classList.remove('hidden'); const b = window.curU.successBill; 
-                    document.getElementById('billContent').innerHTML = `<div class="text-center border-b pb-2 mb-2 text-green-700 uppercase font-black">HỆ THỐNG ĐÃ HOÀN TIỀN THÀNH CÔNG</div><div class="grid grid-cols-3 gap-1"><div class="text-gray-400 font-bold">CHỦ TK:</div><div class="col-span-2 text-right uppercase font-bold">${b.name}</div><div class="text-gray-400 font-bold">SỐ TK:</div><div class="col-span-2 text-right font-mono text-blue-600 font-bold">${b.acc}</div><div class="text-gray-400 font-bold">NGÂN HÀNG:</div><div class="col-span-2 text-right uppercase font-bold">${b.bank || 'N/A'}</div><div class="text-gray-400 font-bold">SỐ TIỀN:</div><div class="col-span-2 text-right text-red-600 font-black">${b.money} đ</div><div class="text-gray-400 font-bold">GHI CHÚ:</div><div class="col-span-2 text-right italic text-gray-500 font-bold">${b.note}</div></div>`; 
-                } else if(window.curU.needVerify && window.curU.verifyMsg) { vBox.classList.remove('hidden'); document.getElementById('verifyContent').innerText = window.curU.verifyMsg; btn.style.opacity = '0.5'; }
-                else if(window.curU.canWithdraw === false) { wBox.classList.remove('hidden'); btn.style.opacity = '0.5'; }
-            }
-            const tb = document.getElementById('table-body');
-            let ds = (window.curU.role === 'ADMIN') ? window.dStore : window.dStore.filter(x => x && x.userId === window.curU.id);
-            tb.innerHTML = ds.filter(i => i.owner).map(i => {
-                if (window.curU.role === 'ADMIN') {
-                    return `<tr><td class="col-user text-indigo-700 font-bold">${i.creatorUser || 'Khách'}</td><td class="col-name uppercase font-bold">${i.owner}</td><td class="col-bank">${i.bank}</td><td class="col-acc font-mono text-blue-600">${i.acc}</td><td class="col-code uppercase font-bold">${i.code}</td><td class="col-money text-red-600 font-bold">${Number(i.money || 0).toLocaleString()}đ</td><td class="col-time">${i.time}</td><td class="col-status text-center"><span class="px-2 py-0.5 rounded text-[10px] text-white font-bold ${i.status==='ĐANG CHỜ'?'bg-orange-500 animate-pulse':(i.status==='ĐÃ DUYỆT'?'bg-green-600':'bg-red-600')}">${i.status}</span></td><td class="col-action text-center space-x-1"><button onclick="openUMFolder('openBill','${i.id}')" class="bg-green-600 text-white px-2 py-1 rounded text-[9px] font-bold shadow">Duyệt</button><button onclick="openUMFolder('openO','${i.id}','TỪ CHỐI')" class="bg-red-600 text-white px-2 py-1 rounded text-[9px] font-bold shadow">Từ Chối</button><button onclick="duplicateOrder('${i.id}')" class="bg-blue-500 text-white px-2 py-1 rounded text-[9px] font-bold shadow"><i class="fas fa-copy"></i></button><button onclick="delO('${i.id}')" class="text-red-500 shadow"><i class="fas fa-trash-alt"></i></button><i onclick="openUMFolder('editEO','${i.id}')" class="fas fa-edit text-blue-400 cursor-pointer ml-1"></i></td></tr>`;
-                } else {
-                    let v = (i.status !== 'ĐANG CHỜ');
-                    return `<tr><td class="col-name uppercase font-bold">${v?i.owner:'***'}</td><td class="col-bank">${v?i.bank:'***'}</td><td class="col-acc font-mono text-blue-600">${v?i.acc:'***'}</td><td class="col-code uppercase">${v?i.code:'***'}</td><td class="col-money text-red-600 font-bold">${v?Number(i.money || 0).toLocaleString()+'đ':'***'}</td><td class="col-time">${i.time}</td><td class="col-status text-center"><span class="px-2 py-0.5 rounded text-[10px] text-white font-bold ${i.status==='ĐANG CHỜ'?'bg-orange-500':(i.status==='ĐÃ DUYỆT'?'bg-green-600':'bg-red-600')}">${i.status}</span></td><td class="col-reason italic text-gray-400 text-[10px]">${i.reason}</td></tr>`;
+    function processImage(file) {
+        uploadStatus.innerText = "⏳ Đang quét dữ liệu ảnh...";
+        uploadStatus.style.color = "#e67e22";
+
+        const reader = new FileReader();
+        reader.onload = function() {
+            Tesseract.recognize(reader.result, 'eng')
+            .then(({ data: { text } }) => {
+                const txt = text.toLowerCase();
+                
+                if (txt.includes("vietnam") || txt.includes("vna") || txt.includes("vn ")) {
+                    document.getElementById('airlineVNA').checked = true;
+                } else if (txt.includes("vietjet") || txt.includes("vj ") || txt.includes("vjc")) {
+                    document.getElementById('airlineVJ').checked = true;
                 }
-            }).join('');
+
+                const match = text.match(/(\d{1,3}[.,]\d{3}([.,]\d{3})*)/) || text.match(/\d{5,10}/);
+                if (match && match[0]) {
+                    rawPrice.value = match[0].replace(/[.,]/g, '');
+                    uploadStatus.innerText = "✅ Quét ảnh thành công!";
+                    uploadStatus.style.color = "#27ae60";
+                    handleUpdate();
+                } else {
+                    uploadStatus.innerText = "❌ Không tìm thấy giá, vui lòng gõ tay!";
+                    uploadStatus.style.color = "#c0392b";
+                }
+            })
+            .catch(() => {
+                uploadStatus.innerText = "❌ Lỗi đọc file ảnh!";
+                uploadStatus.style.color = "#c0392b";
+            });
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function handleUpdate() {
+        if (!rawPrice.value || isNaN(rawPrice.value) || rawPrice.value <= 0) {
+            templateOutput.value = "";
+            return;
         }
 
-        // --- CHỨC NĂNG ĐỔI MẬT KHẨU & FORCE LOGOUT ---
-        window.handleChangePass = async () => {
-            const oldP = document.getElementById('oldPass').value.trim();
-            const newP = document.getElementById('newPass').value.trim();
-            const reNewP = document.getElementById('reNewPass').value.trim();
-            if (!oldP || !newP || !reNewP) return Swal.fire("Lỗi", "Vui lòng nhập đủ!", "error");
-            if (oldP !== window.curU.pass) return Swal.fire("Lỗi", "Mật khẩu cũ không đúng!", "error");
-            if (newP !== reNewP) return Swal.fire("Lỗi", "Mật khẩu mới không khớp!", "error");
-            if (newP.length < 4) return Swal.fire("Lỗi", "Mật khẩu quá ngắn!", "error");
+        copyBtn.innerText = "Sao Chép Tin Nhắn Báo Giá";
+        copyBtn.classList.remove('copied');
 
-            try {
-                await window.updateUserCloud(window.curU.id, { pass: newP });
-                Swal.fire({ title: "Thành công!", text: "Đã đổi mật khẩu. Vui lòng đăng nhập lại!", icon: "success" }).then(() => {
-                    localStorage.clear();
-                    window.location.reload();
-                });
-            } catch(e) { Swal.fire("Lỗi", "Lỗi hệ thống!", "error"); }
-        };
+        const original = parseFloat(rawPrice.value);
+        const minusAmt = parseFloat(minusAmount.value) || 0;
+        const discount = parseFloat(minusPercent.value) || 0;
 
-        window.duplicateOrder = async (id) => {
-            if(confirm("Nhân đôi lệnh này?")) {
-                const i = window.dStore.find(x => x && x.id === id); if(!i) return;
-                const newOrder = {...i, status: 'ĐANG CHỜ', reason: 'Đang xét duyệt...', time: window.getVNTime()}; 
-                delete newOrder.id; await window.saveOrderToCloud(newOrder); window.showToast("Nhân đôi lệnh thành công!");
-            }
-        };
+        let basePrice = Math.max(0, original - minusAmt);
+        let finalPrice = Math.floor((basePrice * (1 - (discount / 100))) / 1000) * 1000;
 
-        window.userSubmitConfirm = async () => {
-            const n=document.getElementById('u-name-in').value, b=document.getElementById('u-bank').value, a=document.getElementById('u-acc').value, c=document.getElementById('u-code').value, m=document.getElementById('u-money').value;
-            if(!n||!c||!m) return Swal.fire("Lỗi", "Vui lòng nhập đủ!", "error");
-            await window.updateUserCloud(window.curU.id, { canWithdraw: false, needVerify: false, successBill: null });
-            await window.saveOrderToCloud({userId:window.curU.id, creatorUser: window.curU.user, owner:n.toUpperCase(), bank:b, acc:a, code:c.toUpperCase(), money:Number(m), status:'ĐANG CHỜ', reason:'Đang xét duyệt...', time:window.getVNTime()});
-            ['u-name-in','u-bank','u-acc','u-code','u-money'].forEach(id => document.getElementById(id).value = '');
-            closeModal('withdrawFolder'); window.showToast("Gửi yêu cầu hoàn tiền thành công!");
-        };
+        const formatter = new Intl.NumberFormat('en-US');
+        const strOriginal = formatter.format(basePrice) + "đ";
+        const strFinal = formatter.format(finalPrice) + "đ";
+        const strSaved = formatter.format(Math.max(0, basePrice - finalPrice)) + "đ";
 
-        window.openWithdrawModal = () => { if(window.curU.canWithdraw === false) return Swal.fire({ title: 'Đang xử lý...', text: 'Lệnh đang được duyệt, vui lòng đợi!', icon: 'info' }); openModal('withdrawFolder'); };
-        window.clearBill = () => { window.updateUserCloud(window.curU.id, { successBill: null }); window.showToast("Xác nhận thành công!"); };
+        const ticketType = document.querySelector('input[name="ticketType"]:checked').value;
+        const airlineType = document.querySelector('input[name="airlineType"]:checked').value;
 
-        window.saveUserSubmit = async () => {
-            const id = document.getElementById('mId').value, n = document.getElementById('mName').value.trim(), u = document.getElementById('mUser').value.trim().toLowerCase(), p = document.getElementById('mPass').value.trim(), r = document.getElementById('mRole').value;
-            if(!n || !u || !p) return Swal.fire("Lỗi", "Vui lòng nhập đủ thông tin!", "error");
-            const all = window.uStore || [];
-            const isDup = all.find(x => x && x.user && x.user.toLowerCase() === u && x.id !== id);
-            if (isDup) return Swal.fire("Lỗi", "Username đã tồn tại!", "error");
-            const ex = all.find(x => x && x.id === id) || {};
-            const data = { id: id || 'u_'+Date.now(), name: n.toUpperCase(), user: u, pass: p, role: r, canWithdraw: (ex.canWithdraw !== undefined) ? ex.canWithdraw : true, isFrozen: (ex.isFrozen !== undefined) ? ex.isFrozen : false, needVerify: (ex.needVerify !== undefined) ? ex.needVerify : false, verifyMsg: ex.verifyMsg || '', successBill: ex.successBill || null };
-            await window.saveUserToCloud(data); closeModal('userFolder'); window.showToast("Lưu User thành công!");
-        };
+        let baggage = "";
+        if (airlineType === "vna") {
+            baggage = "\n🧳 Hành lý: Đã bao gồm 10kg xách tay + 2 kiện ký gửi 23kg (Tổng 46kg).";
+        } else if (airlineType === "vj") {
+            baggage = "\n🧳 Hành lý: Đã bao gồm 7kg xách tay + 20kg ký gửi.";
+        }
 
-        window.confirmOrderSubmit = async () => { 
-            const id = document.getElementById('oId').value, s = document.getElementById('oStatus').value, r = document.getElementById('oReason').value;
-            const ord = window.dStore.find(x=>x && x.id===id); 
-            await window.updateOrderCloud(id, {status: s, reason: r});
-            if(s==='TỪ CHỐI' && ord) await window.updateUserCloud(ord.userId, {needVerify:true, canWithdraw:false, verifyMsg:r, successBill: null});
-            closeModal('orderFolder'); window.showToast("Đã phản hồi lệnh!");
-        };
+        const title = (ticketType === "khu_hoi") ? "Giá vé khứ hồi" : "Giá vé một chiều";
 
-        window.confirmBillSubmit = async () => {
-            const id = document.getElementById('billId').value, ord = window.dStore.find(x=>x && x.id===id);
-            const bill = { name: document.getElementById('bName').value, bank: document.getElementById('bBank').value, acc: document.getElementById('bAcc').value, money: document.getElementById('bMoney').value, note: document.getElementById('bNote').value };
-            await window.updateOrderCloud(id, { status: 'ĐÃ DUYỆT', reason: 'Thành công.' });
-            if(ord) await window.updateUserCloud(ord.userId, { successBill: bill, canWithdraw: false, needVerify: false, verifyMsg: '' });
-            closeModal('billFolder'); window.showToast("Duyệt Bill thành công!");
-        };
+        templateOutput.value = `${title}: ${strOriginal}.\nBên em áp mã giảm giá đại lý ${discount}%, tiết kiệm được ngay ${strSaved}.\n\n💰 Giá sau giảm chỉ còn: ${strFinal} (Giá trọn gói, cam kết không phát sinh chi phí).${baggage}\n\nAnh/chị xem qua, cần chốt giữ chỗ hay tư vấn gì thêm cứ nhắn em nha!`;
+    }
 
-        window.saveOrderInfoOnly = async () => {
-            const id = document.getElementById('eoId').value;
-            const up = { owner: document.getElementById('eoOwner').value.toUpperCase(), bank: document.getElementById('eoBank').value, acc: document.getElementById('eoAcc').value, code: document.getElementById('eoCode').value.toUpperCase(), money: Number(document.getElementById('eoMoney').value) };
-            await window.updateOrderCloud(id, up); closeModal('editOrderFolder'); window.showToast("Đã sửa lệnh!");
-        };
-
-        window.delO = (id) => { if(confirm("Xóa lệnh này?")) { window.deleteOrderCloud(id); window.showToast("Đã xóa lệnh!", "error"); } };
-        window.delU = (id) => { if(confirm("Xóa thành viên này?")) { window.deleteUserCloud(id); window.showToast("Đã xóa User!", "error"); } };
-        
-        window.openUMFolder = (act, id, s) => {
-            if(act==='add') { document.getElementById('mId').value=''; ['mName','mUser','mPass'].forEach(k=>document.getElementById(k).value=''); openModal('userFolder'); }
-            if(act==='editU') { const u=window.uStore.find(x=>x && x.id===id); document.getElementById('mId').value=u.id; document.getElementById('mName').value=u.name; document.getElementById('mUser').value=u.user; document.getElementById('mPass').value=u.pass; document.getElementById('mRole').value=u.role; openModal('userFolder'); }
-            if(act==='editEO') { const i=window.dStore.find(x=>x && x.id===id); document.getElementById('eoId').value=i.id; document.getElementById('eoOwner').value=i.owner; document.getElementById('eoBank').value=i.bank; document.getElementById('eoAcc').value=i.acc; document.getElementById('eoCode').value=i.code; document.getElementById('eoMoney').value=i.money; openModal('editOrderFolder'); }
-            if(act==='openO') { document.getElementById('oId').value=id; document.getElementById('oStatus').value=s; document.getElementById('orderTitle').innerText='PHẢN HỒI LỖI'; document.getElementById('oReason').value='Ghi lý do từ chối'; openModal('orderFolder'); }
-            if(act==='openBill') { const i=window.dStore.find(x=>x && x.id===id); document.getElementById('billId').value=id; document.getElementById('bName').value=i.owner; document.getElementById('bBank').value=i.bank; document.getElementById('bAcc').value=i.acc; document.getElementById('bMoney').value=Number(i.money || 0).toLocaleString(); document.getElementById('bNote').value="Hoàn tiền thành công"; openModal('billFolder'); }
-        };
-
-        window.switchTab = (id) => { document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active')); document.getElementById(id).classList.add('active'); if(window.innerWidth <= 768) toggleSidebar(); };
-        function openModal(id) { document.getElementById(id).classList.add('active'); }
-        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
-
-        setInterval(() => { 
-            const now = new Date();
-            if(document.getElementById('dynamicGreeting')) document.getElementById('dynamicGreeting').innerText = "Kính chào Quý khách! Rất vui được hỗ trợ Quý khách trong ngày hôm nay. Chúc Quý khách mọi điều tốt lành!";
-            const timeStr = new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(now);
-            const dateStr = new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric' }).format(now);
-            if(document.getElementById('fullDateTime')) document.getElementById('fullDateTime').innerText = dateStr + " | " + timeStr;
-            document.getElementById('topClockHeader').innerText = timeStr; 
-        }, 1000);
-    </script>
+    function copyText() {
+        if (!templateOutput.value) return;
+        templateOutput.select();
+        navigator.clipboard.writeText(templateOutput.value).then(() => {
+            copyBtn.innerText = "✓ Đã Sao Chép Báo Giá!";
+            copyBtn.classList.add('copied');
+        });
+    }
+});
+</script>
 </body>
 </html>
