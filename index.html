@@ -103,7 +103,7 @@
         }
         textarea {
             width: 100%;
-            height: 160px; /* Tăng thêm không gian hiển thị tin nhắn chi tiết */
+            height: 160px;
             border: 1px solid #ccc;
             border-radius: 6px;
             background: #fdfdfd;
@@ -362,41 +362,29 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const ticketType = document.querySelector('input[name="ticketType"]:checked').value;
         const airlineType = document.querySelector('input[name="airlineType"]:checked').value;
-
-        // Tính giá cơ bản sau khi trừ tiền mặt
-        let basePrice = Math.max(0, original - minusAmt);
         
-        // --- TÍNH TOÁN CHO TỪNG LOẠI VÉ KHÁCH HÀNG ---
-        // 1. Người lớn
-        let singleAdultPrice = Math.floor((basePrice * (1 - (discount / 100))) / 1000) * 1000;
-        let totalAdult = singleAdultPrice * numAdult;
+        const singleInfantPrice = (ticketType === "khu_hoi") ? 400000 : 200000; 
 
-        // 2. Trẻ em (Giá sau giảm người lớn x 70%)
+        // --- TÍNH GIÁ ĐÃ KHUYẾN MẠI CỦA TỪNG LOẠI VÉ ---
+        let singleAdultPrice = Math.floor((original * (1 - (discount / 100))) / 1000) * 1000 - minusAmt;
+        if(singleAdultPrice < 0) singleAdultPrice = 0;
+
         let singleChildPrice = Math.floor((singleAdultPrice * 0.7) / 1000) * 1000;
-        let totalChild = singleChildPrice * numChild;
 
-        // 3. Em bé (Thuế phí cố định)
-        let singleInfantPrice = (ticketType === "khu_hoi") ? 400000 : 200000;
+        // --- NHÂN VỚI SỐ LƯỢNG NGƯỜI ĐỂ RA TỔNG TIỀN THANH TOÁN ---
+        let totalAdult = singleAdultPrice * numAdult;
+        let totalChild = singleChildPrice * numChild;
         let totalInfant = singleInfantPrice * numInfant;
 
-        // TỔNG TIỀN CUỐI CÙNG (SAU GIẢM)
         let totalAll = totalAdult + totalChild + totalInfant;
 
-        // --- TÍNH TOÁN TỔNG GIÁ VÉ GỐC ĐỂ HIỂN THỊ ---
-        let rawChildPrice = Math.floor((basePrice * 0.7) / 1000) * 1000; // Giá gốc trẻ em tương ứng 70%
-        let totalRawPrice = (basePrice * numAdult) + (rawChildPrice * numChild) + (singleInfantPrice * numInfant);
-        
-        // Số tiền tiết kiệm được cho cả đoàn
-        let totalSaved = Math.max(0, totalRawPrice - totalAll);
-
-        // Định dạng số tiền hiển thị
+        // Định dạng hiển thị tiền tệ
         const formatter = new Intl.NumberFormat('en-US');
-        const strTotalRaw = formatter.format(totalRawPrice) + "đ";
+        const strSingleRaw = formatter.format(original) + "đ"; 
         const strTotalAll = formatter.format(totalAll) + "đ";
-        const strTotalSaved = formatter.format(totalSaved) + "đ";
         const strSingleAdult = formatter.format(singleAdultPrice) + "đ";
 
-        // Tạo text chi tiết số hành khách
+        // Chuỗi hiển thị thông tin đoàn khách (Ví dụ: 2 người lớn, 1 trẻ em)
         let paxDetailStr = `${numAdult} người lớn`;
         if (numChild > 0) paxDetailStr += `, ${numChild} trẻ em`;
         if (numInfant > 0) paxDetailStr += `, ${numInfant} em bé`;
@@ -410,17 +398,17 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const title = (ticketType === "khu_hoi") ? "Giá vé khứ hồi" : "Giá vé một chiều";
 
-        // Chuỗi chi tiết giá từng người (nếu đoàn đông loại người)
+        // Chi tiết giá vé sau giảm của từng người để gửi khách công khai
         let breakdownStr = "";
         if (numChild > 0 || numInfant > 0) {
-            breakdownStr = `\n(Chi tiết: Người lớn ${strSingleAdult}/vé`;
+            breakdownStr = `\n(Chi tiết sau giảm: Người lớn ${strSingleAdult}/vé`;
             if (numChild > 0) breakdownStr += ` | Trẻ em: ${formatter.format(singleChildPrice)}đ/vé`;
             if (numInfant > 0) breakdownStr += ` | Em bé: ${formatter.format(singleInfantPrice)}đ/vé`;
             breakdownStr += `)`;
         }
 
-        // Xuất văn bản gửi khách hiển thị rõ GIÁ GỐC ban đầu
-        templateOutput.value = `${title} (${paxDetailStr}):\n- Giá gốc trên hệ thống: ${strTotalRaw}.\n- Bên em áp mã giảm giá đại lý ${discount}%, tiết kiệm ngay cho mình được: ${strTotalSaved}.${breakdownStr}\n${baggage}\n\n💰 Tổng giá trọn gói thanh toán sau giảm: ${strTotalAll} (Cam kết không phát sinh chi phí).\n\nAnh/chị xem qua, cần chốt giữ chỗ luôn hay tư vấn gì thêm cứ nhắn em nha!`;
+        // Xuất văn bản tin nhắn, thêm (cho X người lớn...) ở dòng tổng giá thanh toán cuối cùng
+        templateOutput.value = `${title} (${paxDetailStr}):\n- Giá gốc trên hệ thống: ${strSingleRaw}/vé người lớn.\n- Bên em áp mã giảm giá đại lý ${discount}% + chương trình chiết khấu riêng.${breakdownStr}\n${baggage}\n\n💰 Tổng giá trọn gói thanh toán sau giảm: ${strTotalAll} (cho ${paxDetailStr.toLowerCase()}) (Cam kết không phát sinh chi phí).\n\nAnh/chị xem qua, cần chốt giữ chỗ luôn hay tư vấn gì thêm cứ nhắn em nha!`;
     }
 
     function copyText() {
