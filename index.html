@@ -9,7 +9,7 @@
             font-family: 'Segoe UI', Tahoma, sans-serif;
             margin: 20px auto;
             padding: 16px;
-            width: 420px; /* Tăng kích thước bề rộng to ra, thoải mái hơn */
+            width: 440px;
             box-sizing: border-box;
             background-color: #f4f6f9;
             border-radius: 10px;
@@ -88,9 +88,22 @@
         .input-box:focus {
             border-color: #1a73e8;
         }
+        .pax-container {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+        .pax-box {
+            flex: 1;
+            text-align: center;
+        }
+        .pax-box input {
+            text-align: center;
+            margin-bottom: 0;
+        }
         textarea {
             width: 100%;
-            height: 120px;
+            height: 160px; /* Tăng thêm không gian hiển thị tin nhắn chi tiết */
             border: 1px solid #ccc;
             border-radius: 6px;
             background: #fdfdfd;
@@ -118,7 +131,6 @@
             background: #34a853;
         }
         
-        /* PHẦN THẢ BẢ TIN NHẮN NHANH */
         .ba-container {
             background: #fff;
             padding: 10px;
@@ -193,7 +205,7 @@
         </label>
     </div>
 
-    <div class="group-title">Giá gốc hệ thống:</div>
+    <div class="group-title">Giá gốc hệ thống (1 Người lớn):</div>
     <input type="number" id="rawPrice" class="input-box" placeholder="Nhập giá hoặc để ảnh tự điền..." autofocus>
 
     <div style="display: flex; gap: 8px;">
@@ -204,6 +216,22 @@
         <div style="flex: 1;">
             <div class="group-title">Giảm (%):</div>
             <input type="number" id="minusPercent" class="input-box" value="35">
+        </div>
+    </div>
+
+    <div class="group-title">Số lượng hành khách:</div>
+    <div class="pax-container">
+        <div class="pax-box">
+            <div class="group-title" style="font-weight: normal; font-size: 11px;">Người lớn</div>
+            <input type="number" id="paxAdult" class="input-box" value="1" min="1">
+        </div>
+        <div class="pax-box">
+            <div class="group-title" style="font-weight: normal; font-size: 11px;">Trẻ em (2-12t)</div>
+            <input type="number" id="paxChild" class="input-box" value="0" min="0">
+        </div>
+        <div class="pax-box">
+            <div class="group-title" style="font-weight: normal; font-size: 11px;">Em bé (&lt;2t)</div>
+            <input type="number" id="paxInfant" class="input-box" value="0" min="0">
         </div>
     </div>
 
@@ -225,7 +253,6 @@
 </div>
 
 <script>
-// Mẫu tin nhắn thả bả
 const mauThaBa = {
     1: "Dạ em đang thấy giá này tốt nhất trong tuần, em hỗ trợ giữ chỗ MIỄN PHÍ cho mình trước để khóa giá đẹp này lại nha anh/chị? Lát mình chốt sau đỡ bị tăng giá ạ!",
     2: "Anh/chị ơi, mã giảm giá đại lý của chuyến này hệ thống sắp hết hạn áp dụng rồi ạ. Mình chốt luôn bây giờ để em xuất vé giữ nguyên giá rẻ này cho mình nhé!",
@@ -237,7 +264,6 @@ function copyBa(id) {
     const txt = mauThaBa[id];
     document.getElementById('baOutput').value = txt;
     
-    // Tự động sao chép
     navigator.clipboard.writeText(txt).then(() => {
         const toast = document.getElementById('toastMsg');
         toast.innerText = "✓ Đã tự động copy tin nhắn thả bả!";
@@ -251,13 +277,16 @@ document.addEventListener('DOMContentLoaded', function () {
     const minusPercent = document.getElementById('minusPercent');
     const typeOneWay = document.getElementById('typeOneWay');
     const typeRoundTrip = document.getElementById('typeRoundTrip');
+    const paxAdult = document.getElementById('paxAdult');
+    const paxChild = document.getElementById('paxChild');
+    const paxInfant = document.getElementById('paxInfant');
     const templateOutput = document.getElementById('templateOutput');
     const copyBtn = document.getElementById('copyBtn');
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
     const uploadStatus = document.getElementById('uploadStatus');
 
-    [rawPrice, minusAmount, minusPercent].forEach(el => el.addEventListener('input', handleUpdate));
+    [rawPrice, minusAmount, minusPercent, paxAdult, paxChild, paxInfant].forEach(el => el.addEventListener('input', handleUpdate));
     [typeOneWay, typeRoundTrip].forEach(el => el.addEventListener('change', handleUpdate));
     document.querySelectorAll('input[name="airlineType"]').forEach(el => el.addEventListener('change', handleUpdate));
     copyBtn.addEventListener('click', copyText);
@@ -327,16 +356,50 @@ document.addEventListener('DOMContentLoaded', function () {
         const minusAmt = parseFloat(minusAmount.value) || 0;
         const discount = parseFloat(minusPercent.value) || 0;
 
-        let basePrice = Math.max(0, original - minusAmt);
-        let finalPrice = Math.floor((basePrice * (1 - (discount / 100))) / 1000) * 1000;
-
-        const formatter = new Intl.NumberFormat('en-US');
-        const strOriginal = formatter.format(basePrice) + "đ";
-        const strFinal = formatter.format(finalPrice) + "đ";
-        const strSaved = formatter.format(Math.max(0, basePrice - finalPrice)) + "đ";
+        const numAdult = Math.max(1, parseInt(paxAdult.value) || 1);
+        const numChild = Math.max(0, parseInt(paxChild.value) || 0);
+        const numInfant = Math.max(0, parseInt(paxInfant.value) || 0);
 
         const ticketType = document.querySelector('input[name="ticketType"]:checked').value;
         const airlineType = document.querySelector('input[name="airlineType"]:checked').value;
+
+        // Tính giá cơ bản sau khi trừ tiền mặt
+        let basePrice = Math.max(0, original - minusAmt);
+        
+        // --- TÍNH TOÁN CHO TỪNG LOẠI VÉ KHÁCH HÀNG ---
+        // 1. Người lớn
+        let singleAdultPrice = Math.floor((basePrice * (1 - (discount / 100))) / 1000) * 1000;
+        let totalAdult = singleAdultPrice * numAdult;
+
+        // 2. Trẻ em (Giá sau giảm người lớn x 70%)
+        let singleChildPrice = Math.floor((singleAdultPrice * 0.7) / 1000) * 1000;
+        let totalChild = singleChildPrice * numChild;
+
+        // 3. Em bé (Thuế phí cố định)
+        let singleInfantPrice = (ticketType === "khu_hoi") ? 400000 : 200000;
+        let totalInfant = singleInfantPrice * numInfant;
+
+        // TỔNG TIỀN CUỐI CÙNG (SAU GIẢM)
+        let totalAll = totalAdult + totalChild + totalInfant;
+
+        // --- TÍNH TOÁN TỔNG GIÁ VÉ GỐC ĐỂ HIỂN THỊ ---
+        let rawChildPrice = Math.floor((basePrice * 0.7) / 1000) * 1000; // Giá gốc trẻ em tương ứng 70%
+        let totalRawPrice = (basePrice * numAdult) + (rawChildPrice * numChild) + (singleInfantPrice * numInfant);
+        
+        // Số tiền tiết kiệm được cho cả đoàn
+        let totalSaved = Math.max(0, totalRawPrice - totalAll);
+
+        // Định dạng số tiền hiển thị
+        const formatter = new Intl.NumberFormat('en-US');
+        const strTotalRaw = formatter.format(totalRawPrice) + "đ";
+        const strTotalAll = formatter.format(totalAll) + "đ";
+        const strTotalSaved = formatter.format(totalSaved) + "đ";
+        const strSingleAdult = formatter.format(singleAdultPrice) + "đ";
+
+        // Tạo text chi tiết số hành khách
+        let paxDetailStr = `${numAdult} người lớn`;
+        if (numChild > 0) paxDetailStr += `, ${numChild} trẻ em`;
+        if (numInfant > 0) paxDetailStr += `, ${numInfant} em bé`;
 
         let baggage = "";
         if (airlineType === "vna") {
@@ -347,7 +410,17 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const title = (ticketType === "khu_hoi") ? "Giá vé khứ hồi" : "Giá vé một chiều";
 
-        templateOutput.value = `${title}: ${strOriginal}.\nBên em áp mã giảm giá đại lý ${discount}%, tiết kiệm được ngay ${strSaved}.\n\n💰 Giá sau giảm chỉ còn: ${strFinal} (Giá trọn gói, cam kết không phát sinh chi phí).${baggage}\n\nAnh/chị xem qua, cần chốt giữ chỗ hay tư vấn gì thêm cứ nhắn em nha!`;
+        // Chuỗi chi tiết giá từng người (nếu đoàn đông loại người)
+        let breakdownStr = "";
+        if (numChild > 0 || numInfant > 0) {
+            breakdownStr = `\n(Chi tiết: Người lớn ${strSingleAdult}/vé`;
+            if (numChild > 0) breakdownStr += ` | Trẻ em: ${formatter.format(singleChildPrice)}đ/vé`;
+            if (numInfant > 0) breakdownStr += ` | Em bé: ${formatter.format(singleInfantPrice)}đ/vé`;
+            breakdownStr += `)`;
+        }
+
+        // Xuất văn bản gửi khách hiển thị rõ GIÁ GỐC ban đầu
+        templateOutput.value = `${title} (${paxDetailStr}):\n- Giá gốc trên hệ thống: ${strTotalRaw}.\n- Bên em áp mã giảm giá đại lý ${discount}%, tiết kiệm ngay cho mình được: ${strTotalSaved}.${breakdownStr}\n${baggage}\n\n💰 Tổng giá trọn gói thanh toán sau giảm: ${strTotalAll} (Cam kết không phát sinh chi phí).\n\nAnh/chị xem qua, cần chốt giữ chỗ luôn hay tư vấn gì thêm cứ nhắn em nha!`;
     }
 
     function copyText() {
