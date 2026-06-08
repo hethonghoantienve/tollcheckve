@@ -103,7 +103,7 @@
         }
         textarea {
             width: 100%;
-            height: 160px;
+            height: 140px;
             border: 1px solid #ccc;
             border-radius: 6px;
             background: #fdfdfd;
@@ -365,50 +365,38 @@ document.addEventListener('DOMContentLoaded', function () {
         
         const singleInfantPrice = (ticketType === "khu_hoi") ? 400000 : 200000; 
 
-        // --- TÍNH GIÁ ĐÃ KHUYẾN MẠI CỦA TỪNG LOẠI VÉ ---
+        // Tính giá đã giảm
         let singleAdultPrice = Math.floor((original * (1 - (discount / 100))) / 1000) * 1000 - minusAmt;
         if(singleAdultPrice < 0) singleAdultPrice = 0;
 
         let singleChildPrice = Math.floor((singleAdultPrice * 0.7) / 1000) * 1000;
 
-        // --- NHÂN VỚI SỐ LƯỢNG NGƯỜI ĐỂ RA TỔNG TIỀN THANH TOÁN ---
+        // Tính tổng tiền
         let totalAdult = singleAdultPrice * numAdult;
         let totalChild = singleChildPrice * numChild;
         let totalInfant = singleInfantPrice * numInfant;
-
         let totalAll = totalAdult + totalChild + totalInfant;
 
-        // Định dạng hiển thị tiền tệ
         const formatter = new Intl.NumberFormat('en-US');
         const strSingleRaw = formatter.format(original) + "đ"; 
         const strTotalAll = formatter.format(totalAll) + "đ";
-        const strSingleAdult = formatter.format(singleAdultPrice) + "đ";
 
-        // Chuỗi hiển thị thông tin đoàn khách (Ví dụ: 2 người lớn, 1 trẻ em)
+        // Gom nhóm thông tin đoàn ngắn gọn
         let paxDetailStr = `${numAdult} người lớn`;
         if (numChild > 0) paxDetailStr += `, ${numChild} trẻ em`;
         if (numInfant > 0) paxDetailStr += `, ${numInfant} em bé`;
 
         let baggage = "";
         if (airlineType === "vna") {
-            baggage = "\n🧳 Hành lý: Đã bao gồm 10kg xách tay + 2 kiện ký gửi 23kg (Tổng 46kg).";
+            baggage = " (Bao gồm 10kg xách tay + 46kg ký gửi)";
         } else if (airlineType === "vj") {
-            baggage = "\n🧳 Hành lý: Đã bao gồm 7kg xách tay + 20kg ký gửi.";
+            baggage = " (Bao gồm 7kg xách tay + 20kg ký gửi)";
         }
 
         const title = (ticketType === "khu_hoi") ? "Giá vé khứ hồi" : "Giá vé một chiều";
 
-        // Chi tiết giá vé sau giảm của từng người để gửi khách công khai
-        let breakdownStr = "";
-        if (numChild > 0 || numInfant > 0) {
-            breakdownStr = `\n(Chi tiết sau giảm: Người lớn ${strSingleAdult}/vé`;
-            if (numChild > 0) breakdownStr += ` | Trẻ em: ${formatter.format(singleChildPrice)}đ/vé`;
-            if (numInfant > 0) breakdownStr += ` | Em bé: ${formatter.format(singleInfantPrice)}đ/vé`;
-            breakdownStr += `)`;
-        }
-
-        // Xuất văn bản tin nhắn, thêm (cho X người lớn...) ở dòng tổng giá thanh toán cuối cùng
-        templateOutput.value = `${title} (${paxDetailStr}):\n- Giá gốc trên hệ thống: ${strSingleRaw}/vé người lớn.\n- Bên em áp mã giảm giá đại lý ${discount}% + chương trình chiết khấu riêng.${breakdownStr}\n${baggage}\n\n💰 Tổng giá trọn gói thanh toán sau giảm: ${strTotalAll} (cho ${paxDetailStr.toLowerCase()}) (Cam kết không phát sinh chi phí).\n\nAnh/chị xem qua, cần chốt giữ chỗ luôn hay tư vấn gì thêm cứ nhắn em nha!`;
+        // Mẫu tin nhắn rút gọn siêu đẹp, thoáng, kích thích chốt đơn nhanh
+        templateOutput.value = `${title} (${paxDetailStr}):\n- Giá gốc hệ thống: ${strSingleRaw}/vé\n- Áp mã giảm giá đại lý: giảm ${discount}%${baggage}\n\n💰 Tổng giá trọn gói cả đoàn (${paxDetailStr}): ${strTotalAll}\n(Cam kết không phát sinh chi phí, hỗ trợ giữ chỗ miễn phí ạ!)`;
     }
 
     function copyText() {
