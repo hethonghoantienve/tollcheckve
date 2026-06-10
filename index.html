@@ -164,6 +164,9 @@
             height: 16px;
             margin-top: 4px;
         }
+        #vjBaggageGroup {
+            transition: all 0.3s ease;
+        }
     </style>
 </head>
 <body>
@@ -202,6 +205,20 @@
             <input type="radio" name="airlineType" id="airlineVJ" value="vj" checked>
             <div class="btn-select">Vietjet</div>
         </label>
+    </div>
+
+    <div id="vjBaggageGroup">
+        <div class="group-title">Hành lý ký gửi Vietjet:</div>
+        <div class="btn-group">
+            <label>
+                <input type="radio" name="vjBaggage" id="vjBg20" value="20" checked>
+                <div class="btn-select">Giảm 20kg KG</div>
+            </label>
+            <label>
+                <input type="radio" name="vjBaggage" id="vjBg40" value="40">
+                <div class="btn-select">Giảm 40kg KG</div>
+            </label>
+        </div>
     </div>
 
     <div class="group-title">Số tiền trong ảnh quét / nhập vào là:</div>
@@ -297,10 +314,22 @@ document.addEventListener('DOMContentLoaded', function () {
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
     const uploadStatus = document.getElementById('uploadStatus');
+    const vjBaggageGroup = document.getElementById('vjBaggageGroup');
 
     [rawPrice, minusAmount, minusPercent, paxAdult, paxChild, paxInfant].forEach(el => el.addEventListener('input', handleUpdate));
     [typeOneWay, typeRoundTrip].forEach(el => el.addEventListener('change', handleUpdate));
-    document.querySelectorAll('input[name="airlineType"]').forEach(el => el.addEventListener('change', handleUpdate));
+    
+    document.querySelectorAll('input[name="airlineType"]').forEach(el => el.addEventListener('change', function() {
+        // Ẩn hiện cụm chọn hành lý của Vietjet tùy thuộc vào hãng được chọn
+        if (this.value === 'vj') {
+            vjBaggageGroup.style.display = 'block';
+        } else {
+            vjBaggageGroup.style.display = 'none';
+        }
+        handleUpdate();
+    }));
+
+    document.querySelectorAll('input[name="vjBaggage"]').forEach(el => el.addEventListener('change', handleUpdate));
     document.querySelectorAll('input[name="priceInputType"]').forEach(el => el.addEventListener('change', handleUpdate));
     copyBtn.addEventListener('click', copyText);
 
@@ -330,13 +359,14 @@ document.addEventListener('DOMContentLoaded', function () {
         reader.onload = function() {
             Tesseract.recognize(reader.result, 'eng')
             .then(({ data: { text } }) => {
-                // Đưa toàn bộ text về chữ thường và xóa bớt khoảng trắng thừa để chuẩn hóa
                 const cleanText = text.toLowerCase().replace(/\s+/g, ' ');
                 
                 if (cleanText.includes("vietnam") || cleanText.includes("vna") || cleanText.includes("vn ")) {
                     document.getElementById('airlineVNA').checked = true;
+                    vjBaggageGroup.style.display = 'none';
                 } else if (cleanText.includes("vietjet") || cleanText.includes("vj ") || cleanText.includes("vjc")) {
                     document.getElementById('airlineVJ').checked = true;
+                    vjBaggageGroup.style.display = 'block';
                 }
 
                 const airportMatches = text.match(/\b([A-Z]{3})\b/g) || [];
@@ -358,8 +388,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     };
                 }
 
-                // 🎯 THUẬT TOÁN ĐỔI MỚI TOÀN DIỆN:
-                // Tìm vị trí chữ "Tổng giá vé" (Vietjet) hoặc "Tổng số tiền" (VNA)
                 let finalTargetPrice = 0;
                 let keywordIdx = cleanText.indexOf("tổng giá vé");
                 if (keywordIdx === -1) keywordIdx = cleanText.indexOf("tổng số tiền");
@@ -367,18 +395,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (keywordIdx === -1) keywordIdx = cleanText.indexOf("tong so tien");
 
                 if (keywordIdx !== -1) {
-                    // Bốc toàn bộ đoạn chuỗi dài 60 ký tự nằm NGAY SAU từ khóa đó
                     let subStrAfterKeyword = cleanText.substring(keywordIdx, keywordIdx + 60);
-                    // Lọc tìm chuỗi số có dấu chấm hoặc phẩy ngăn cách hàng nghìn trong đoạn vừa bốc
                     let numberMatches = subStrAfterKeyword.match(/(\d{1,3}[.,]\d{3}([.,]\d{3})*)/g);
                     
                     if (numberMatches && numberMatches.length > 0) {
-                        // Lấy số đầu tiên tìm thấy sát chữ tổng tiền nhất
                         finalTargetPrice = parseFloat(numberMatches[0].replace(/[.,]/g, ''));
                     }
                 }
 
-                // Phương án dự phòng 2: Nếu OCR bị lỗi font chữ không đọc được chữ "Tổng", dùng mảng so sánh lấy số lớn nhất
                 if (finalTargetPrice === 0 || finalTargetPrice < 100000) {
                     const allMatches = text.match(/(\d{1,3}[.,]\d{3}([.,]\d{3})*)/g);
                     if (allMatches && allMatches.length > 0) {
@@ -466,11 +490,15 @@ document.addEventListener('DOMContentLoaded', function () {
         if (numChild > 0) paxDetailStr += `, ${numChild} trẻ em`;
         if (numInfant > 0) paxDetailStr += `, ${numInfant} em bé`;
 
+        // CẬP NHẬT LOGIC HÀNH LÝ THEO YÊU CẦU MỚI:
         let baggage = "";
         if (airlineType === "vna") {
-            baggage = (ticketType === "khu_hoi") ? " (Gồm 10kg XT + 46kg KG khứ hồi)" : " (Gồm 10kg XT + 23kg KG)";
+            // VNA mặc định 2 kiện 23kg ký gửi (tổng 46kg) + 10kg xách tay cho tất cả các chặng
+            baggage = " (Gồm 10kg XT + 46kg KG [2 kiện, mỗi kiện 23kg])";
         } else if (airlineType === "vj") {
-            baggage = (ticketType === "khu_hoi") ? " (Gồm 7kg XT + 40kg KG khứ hồi)" : " (Gồm 7kg XT + 20kg KG)";
+            // Vietjet lấy giá trị động từ cụm nút bấm (20kg hoặc 40kg)
+            const vjBgValue = document.querySelector('input[name="vjBaggage"]:checked').value;
+            baggage = ` (Gồm 7kg XT + ${vjBgValue}kg KG)`;
         }
 
         const title = (ticketType === "khu_hoi") ? "Khứ hồi" : "Một chiều";
